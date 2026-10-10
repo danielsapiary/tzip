@@ -1,6 +1,7 @@
+import {probabilityRegions} from './probability-view.js';
 import {huffmanCodeLengths} from './huffman.js';
 import {AutoTokenizer, AutoModelForCausalLM, Tensor, DynamicCache, env} from '@huggingface/transformers';
-import {cumulativeBounds, distribution, limitText, MAX_CHARACTERS, narrowCumulative, tokenBytes, tokenLabel} from './core.js';
+import {cumulativeBounds, decodeSymbol, distribution, encodeArithmeticText, limitText, MAX_CHARACTERS, narrowCumulative, parseArithmeticText, tokenBytes, tokenLabel} from './core.js';
 
 const MODEL = 'Xenova/gpt2';
 const REVISION = 'bf2c7f02e0b826c60d03af341171bde20893da66';
@@ -36,26 +37,53 @@ async function loadModel() {
 
 async function trace(text) {
   if (typeof text !== 'string' || limitText(text) !== text || Array.from(text).length > MAX_CHARACTERS) throw new Error('Use at most 2,048 Unicode characters');
-  if (!text.length) {send({type:'tokens',tokens:[],pieces:[],labels:[]}); return;}
-  const {tokenizer, model, bytes, labels} = await loadModel();
+  if (!text.length) {
+    send({type:'tokens',tokens:[],pieces:[],labels:[],total:0});
+    send({type:'encoded',code:'0:1'});
+    return;
+  }
+  const {tokenizer, bytes, labels} = await loadModel();
   if (cancelled) return;
   const tokens = tokenizer.encode(text, {add_special_tokens:false});
   const pieces = tokens.map(id => Array.from(bytes[id]));
   const original = new TextEncoder().encode(text);
-  const huffmanLengths = huffmanCodeLengths(tokens);
   const reconstructed = pieces.flat();
   if (original.length !== reconstructed.length || original.some((byte,index) => byte !== reconstructed[index])) throw new Error('Tokenizer did not preserve the UTF-8 input');
-  send({type:'tokens',tokens,pieces,labels:tokens.map(id=>labels[id])});
+  send({type:'tokens',tokens,pieces,labels:tokens.map(id=>labels[id]),total:tokens.length});
+  const huffmanLengths = huffmanCodeLengths(tokens);
+  const result = await walk(tokens, tokens.length, huffmanLengths);
+  if (!cancelled) {
+    send({type:'encoded',code:result.code});
+  }
+}
+
+async function decode(code) {
+  const {tokenCount,point,bits}=parseArithmeticText(code);
+  send({type:'tokens',tokens:[],pieces:[],labels:[],total:tokenCount});
+  if (tokenCount === 0) {send({type:'decoded',text:''}); return;}
+  const result = await walk([], tokenCount, null, point, bits);
+  if (cancelled) return;
+  const recovered = result.tokens.flatMap(id=>Array.from(resources.bytes[id]));
+  let text;
+  try {text=new TextDecoder('utf-8',{fatal:true}).decode(Uint8Array.from(recovered));}
+  catch {throw new Error('The arithmetic code decoded to invalid UTF-8 bytes.');}
+  send({type:'decoded',text});
+}
+
+async function walk(tokens, count, huffmanLengths, point = null, codeBits = null) {
+  const {model, bytes, labels} = await loadModel();
   let past = new DynamicCache();
   let before = {low:0n, high:1n, denominator:1n};
+  let livePoint = point;
+  let liveBits = codeBits;
   let precedingBytes = 0, precedingBits = 0, precedingHuffmanBits = 0;
   try {
-    for (let index = 0; index < tokens.length; index++) {
+    for (let index = 0; index < count; index++) {
       if (cancelled) break;
       const position = index % CONTEXT_TOKENS;
       const blockStart = index - position;
       if (!position) {await past.dispose(); past = new DynamicCache();}
-      send({type:'progress',stage:`Predicting token ${index+1} of ${tokens.length}`,completed:index,total:tokens.length,percent:100*index/tokens.length,detail:`GPT-2 on your browser CPU: BOS + ${position} preceding tokens. ${position ? 'Reusing KV cache.' : 'Starting a fresh context block.'} Computing all 50,257 logits.`});
+      send({type:'progress',stage:`${point ? 'Decoding' : 'Predicting'} token ${index+1} of ${count}`,completed:index,total:count,percent:100*index/count,detail:`GPT-2 on your browser CPU: BOS + ${position} ${point ? 'recovered' : 'preceding'} tokens. ${position ? 'Reusing KV cache.' : 'Starting a fresh context block.'} Computing all 50,257 logits.${point ? ' Locating the encoded value in the probability intervals.' : ''}`});
       const input = position ? tokens[index-1] : 50256;
       const output = await model({input_ids:new Tensor('int64',BigInt64Array.of(BigInt(input)),[1,1]), attention_mask:new Tensor('int64',new BigInt64Array(position+1).fill(1n),[1,position+1]), past_key_values:past});
       const cache = {};
@@ -66,7 +94,12 @@ async function trace(text) {
       past.update(cache);
       const logits = output.logits.data;
       const {cdf, probabilities} = distribution(logits.subarray(logits.length-50257));
-      const symbol = tokens[index];
+      const decoded = point ? decodeSymbol(before,point,cdf) : null;
+      const symbol = decoded ? decoded.symbol : tokens[index];
+      if (decoded) {
+        tokens.push(symbol);
+        send({type:'tokens',tokens:tokens.slice(),pieces:tokens.map(id=>Array.from(bytes[id])),labels:tokens.map(id=>labels[id]),total:count});
+      }
       const narrowed = narrowCumulative(before,cdf,symbol);
       const start = Math.max(0,Math.min(50226,symbol-15));
       const rows = Array.from({length:31},(_,offset) => {
@@ -76,22 +109,51 @@ async function trace(text) {
       const probability = (cdf[symbol+1]-cdf[symbol])/cdf.at(-1);
       const cumulativeBits = precedingBits - Math.log2(probability);
       const digits = Math.max(10, Math.ceil(cumulativeBits/Math.log2(10))+4);
-      send({type:'step',step:{symbol,label:labels[symbol],blockStart,precedingBytes,precedingBits,precedingHuffmanBits,beforeBounds:cumulativeBounds(before,digits),newBounds:cumulativeBounds(narrowed,digits),selectionStart:cdf[symbol]/cdf.at(-1),cumulativeBits,probability,modelProbability:probabilities[symbol],rows}});
+      const priorPoint = livePoint;
+      const pointPositionBefore = priorPoint ? relativePosition(before,priorPoint) : null;
+      const priorPositionInSelected = priorPoint ? relativePosition(narrowed,priorPoint) : null;
+      const oldPointInSelected = priorPoint ? containsPoint(narrowed,priorPoint) : false;
+      let pointMoved = false;
+      if (!point) {
+        if (!oldPointInSelected) {
+          const code = encodeArithmeticText(narrowed,index+1,(liveBits?.length || 1)+1);
+          const parsed = parseArithmeticText(code);
+          livePoint = parsed.point;
+          liveBits = parsed.bits;
+          pointMoved = true;
+        }
+      }
+      const code = point ? undefined : `${index+1}:${liveBits}`;
+      const partitions = point ? probabilityRegions(cdf, symbol, labels) : undefined;
+      const pointPositionAfter = livePoint ? relativePosition(narrowed,livePoint) : null;
+      send({type:'step',step:{symbol,label:labels[symbol],blockStart,precedingBytes,precedingBits,precedingHuffmanBits,beforeBounds:cumulativeBounds(before,digits),newBounds:cumulativeBounds(narrowed,digits),selectionStart:cdf[symbol]/cdf.at(-1),codePosition:decoded?.position,partitions,code,pointPositionBefore,selectedPointPosition:point ? decoded.position : (priorPoint ? priorPositionInSelected : pointPositionAfter),pointPositionAfter,pointMoved,cumulativeBits,probability,modelProbability:probabilities[symbol],rows}});
       before = narrowed;
-      precedingBits -= Math.log2(probability);
-      precedingHuffmanBits += huffmanLengths[symbol];
-      precedingBytes += pieces[index].length;
+      precedingBits = cumulativeBits;
+      if (huffmanLengths) precedingHuffmanBits += huffmanLengths[symbol];
+      precedingBytes += bytes[symbol].length;
       // Yield so cancel messages can be processed even on a very fast runtime.
       await new Promise(resolve=>setTimeout(resolve,0));
     }
+    return {interval:before,tokens,code:liveBits ? `${count}:${liveBits}` : undefined};
   } finally {await past.dispose();}
+}
+
+function containsPoint(interval, point) {
+  return point.numerator*interval.denominator >= interval.low*point.denominator &&
+    point.numerator*interval.denominator < interval.high*point.denominator;
+}
+
+function relativePosition(interval, point) {
+  const offset=point.numerator*interval.denominator-interval.low*point.denominator;
+  const width=(interval.high-interval.low)*point.denominator;
+  return Number(offset*1000000000000n/width)/1e12;
 }
 
 self.addEventListener('message', async ({data}) => {
   if (data.type === 'cancel') {cancelled = true; return;}
-  if (data.type !== 'trace' || busy) return;
+  if (!['trace','decode'].includes(data.type) || busy) return;
   busy = true; cancelled = false;
-  try {await trace(data.text); send({type:'done',cancelled});}
+  try {if (data.type === 'decode') await decode(data.code); else await trace(data.text); send({type:'done',cancelled});}
   catch (error) {send({type:'error',message:error.message || String(error)});}
   finally {busy = false;}
 });

@@ -17,12 +17,15 @@ h2 { font-size:23px; }
 .intro-copy { color:#526471; line-height:1.8; max-width:710px; }
 .panel { background:var(--surface); border:1px solid var(--line); border-radius:13px; padding:26px; }
 .education-controls { display:grid; grid-template-columns:200px minmax(0,1fr) auto; gap:24px; align-items:center; }
+.demo-input { min-width:0; }
 .field-label { font-size:12px; font-weight:650; display:block; margin-bottom:12px; }
 .demo-settings strong { display:block; }
 .input-label-row { display:flex; justify-content:space-between; gap:12px; }
 #character-count { font:10px var(--mono); }
 textarea { width:100%; resize:vertical; min-height:100px; max-height:450px; padding:15px; font:15px var(--mono); border:1px solid #bfcac1; border-radius:7px; background:var(--surface); color:var(--ink); }
 textarea:focus, button:focus-visible { outline:2px solid var(--orange); outline-offset:3px; }
+.code-panel { display:grid; gap:9px; width:100%; min-width:0; max-width:100%; margin-top:18px; }
+.code-panel textarea { display:block; width:100%; min-width:0; max-width:100%; min-height:110px; max-height:320px; font-size:12px; line-height:1.55; white-space:pre-wrap; word-break:break-all; overflow-x:hidden; }
 button { font:inherit; cursor:pointer; border-radius:6px; }
 button:disabled { opacity:.45; cursor:default; }
 .primary { background:var(--blue); color:white; border:0; padding:16px 20px; font-size:12px; font-weight:650; }
@@ -51,9 +54,10 @@ button:disabled { opacity:.45; cursor:default; }
 .playback { display:flex; gap:6px; flex-shrink:0; }
 .byte-strip { display:flex; flex-wrap:wrap; gap:7px; max-height:180px; overflow:auto; margin-bottom:22px; }
 .byte-chip { font:12px var(--mono); background:#f7f6f0; padding:7px 9px; border:1px solid var(--line); color:#546874; white-space:pre-wrap; overflow-wrap:anywhere; max-width:100%; }
+.byte-chip:disabled { opacity:.55; }
+.byte-chip:not(:disabled) { cursor:pointer; }
 .byte-chip.active { background:var(--blue); color:white; }
 .byte-chip.seen { border-color:#accab5; color:#35765e; }
-#context-bytes { display:block; font:12px var(--mono); color:var(--blue); white-space:normal; overflow-wrap:anywhere; width:100%; min-width:0; max-height:160px; overflow:auto; margin-top:12px; line-height:1.7; }
 .distribution-layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:28px; align-items:start; margin:20px 0; }
 .distribution-table-wrap { min-width:0; }
 .distribution-table { width:100%; border-collapse:collapse; table-layout:fixed; }
@@ -63,6 +67,8 @@ button:disabled { opacity:.45; cursor:default; }
 .chosen-row { background:#f9e7d9; color:#b54d23; font-weight:700; }
 .bound-diagram { margin:0; padding:24px; background:#edf0e9; border-radius:8px; display:flex; flex-direction:column; gap:12px; min-width:0; }
 .bound-diagram svg { width:100%; height:auto; }
+#interval-stage { min-height:1.2em; }
+.point-status { min-height:2.4em; margin:0; }
 .bound-diagram > strong, .bound-diagram > code { font:16px var(--mono); overflow-wrap:anywhere; white-space:pre-wrap; }
 #current-symbol { font-size:22px; }
 #selected-probability { color:var(--orange); font-size:13px; }
@@ -153,3 +159,15 @@ footer { display:flex; justify-content:space-between; gap:15px; padding:28px 0; 
 .example-presets { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:0 0 12px; font-size:12px; }
 .preset-chip { font:inherit; color:var(--blue); background:var(--surface); border:1px solid #bfcac1; border-radius:999px; padding:7px 13px; }
 .preset-chip[aria-pressed="true"] { color:white; background:var(--blue); border-color:var(--blue); }
+
+.demo-modes { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-bottom:18px; }
+.mode-chip { font:inherit; font-size:13px; border:1px solid #bfcac1; background:var(--surface); color:var(--blue); border-radius:999px; padding:9px 18px; }
+.mode-chip[aria-pressed="true"] { color:white; background:var(--blue); border-color:var(--blue); }
+#decoded-text { white-space:pre-wrap; overflow-wrap:anywhere; font:14px var(--mono); line-height:1.7; max-height:220px; overflow:auto; }
+
+#token-strip { align-items:stretch; gap:8px; max-height:210px; }
+
+.live-fraction { display:grid; gap:8px; padding:12px 14px; margin-bottom:14px; border:1px solid var(--line); border-radius:7px; background:var(--surface); }
+.live-fraction code { display:block; min-width:0; min-height:32px; font:13px/32px var(--mono); color:var(--blue); overflow-wrap:anywhere; text-align:left; }
+#fraction-added { color:var(--orange); }
+.fraction-typing-bit { display:inline-block; padding:3px 4px; border-radius:3px; background:var(--orange); color:white; font-size:21px; font-weight:700; line-height:1; vertical-align:middle; }

@@ -110,3 +110,76 @@ export function cumulativeBounds(interval, digits) {
   };
   return `[${decimal(left)}, ${decimal(right)})`;
 }
+
+/** An exact interior point; token count supplies the stopping condition. */
+export function intervalPoint(interval) {
+  return {numerator:interval.low+interval.high, denominator:2n*interval.denominator};
+}
+
+/** Serialize a completed interval as a finite binary fraction inside it.
+ * The token-count prefix tells decoding when to stop.
+ */
+export function encodeArithmeticText(interval, tokenCount, minimumPrecision = 1) {
+  const {low,high,denominator}=interval;
+  const width=high-low;
+  let bits=Math.max(1,minimumPrecision);
+  while ((width<<BigInt(bits)) <= 2n*denominator) bits++;
+  let scale=1n<<BigInt(bits);
+  let numerator=(low*scale+denominator-1n)/denominator;
+  while ((numerator+1n)*denominator > high*scale) {
+    bits++;
+    scale <<= 1n;
+    numerator=(low*scale+denominator-1n)/denominator;
+  }
+  const pointNumerator=2n*numerator+1n;
+  return `${tokenCount}:${pointNumerator.toString(2).padStart(bits+1,'0')}`;
+}
+
+/** Parse the visible binary decimal as an exact dyadic point in [0,1). */
+export function parseArithmeticText(code) {
+  const normalized=code.replace(/\s/g,'');
+  const match=/^(0|[1-9][0-9]*):([01]+)$/.exec(normalized);
+  if (!match) throw new Error('Invalid arithmetic code. Expected <token count>:<binary fraction bits>.');
+  const tokenCount=Number(match[1]);
+  const bits=match[2];
+  if (!Number.isSafeInteger(tokenCount) || tokenCount>8192 || bits.length>1000000) {
+    throw new Error('Arithmetic code exceeds the supported size.');
+  }
+  return {tokenCount,bits,point:{numerator:BigInt(`0b${bits}`),denominator:1n<<BigInt(bits.length)}};
+}
+
+/** Find how many leading code bits uniquely place this dyadic cell inside an interval. */
+export function bitsToIdentifyInterval(interval, bits) {
+  const {low,high,denominator}=interval;
+  const fits = length => {
+    const scale=1n<<BigInt(length);
+    const prefix=length ? BigInt(`0b${bits.slice(0,length)}`) : 0n;
+    return prefix*denominator>=low*scale && (prefix+1n)*denominator<=high*scale;
+  };
+  let left=0,right=bits.length;
+  while (left<right) {
+    const middle=Math.floor((left+right)/2);
+    if (fits(middle)) right=middle;
+    else left=middle+1;
+  }
+  return left;
+}
+
+/** Locate an encoded rational point in the current conditional CDF.
+ * Integer comparisons preserve half-open boundary semantics even for tiny ranges.
+ * No original token is involved in this lookup.
+ */
+export function decodeSymbol(interval, point, cdf) {
+  const offset=point.numerator*interval.denominator-interval.low*point.denominator;
+  const width=(interval.high-interval.low)*point.denominator;
+  if (offset<0n || offset>=width) throw new Error('Encoded point is outside the decoding interval');
+  const total=BigInt(cdf.at(-1));
+  const target=offset*total/width;
+  let low=0, high=cdf.length-1;
+  while (low+1<high) {
+    const middle=Math.floor((low+high)/2);
+    if (BigInt(cdf[middle])<=target) low=middle;
+    else high=middle;
+  }
+  return {symbol:low, position:Number(offset*1000000000000n/width)/1e12};
+}

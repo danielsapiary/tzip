@@ -36,13 +36,54 @@ npm run dev
 
 Open the localhost URL printed by Vite. The About page opens first; its navigation
 and bottom link lead to the demo. Hints and examples start collapsed.
-Click **Explore the steps** to download
+Click **Encode** to download
 and initialize GPT-2, then compute the trace. The first run downloads quantized
 model weights (approximately 130 MB) and runtime assets; subsequent runs use the
 browser cache when available. Download and inference progress appear in the UI.
 The browser needs sufficient memory and supports WebAssembly; long inputs can
 be slow. **Stop tracing** cancels between inference calls, preserving computed
 steps. Downloading/initializing an in-flight model cannot stop immediately.
+
+## Decoding demonstration
+
+As each token step is computed, the **arithmetic code** updates below the
+source text to encode the prefix reached so far. Step backward or forward to
+inspect the corresponding prefix code. After encoding, it contains the full
+sequence. When computation finishes, both modes return to the ▶ start marker;
+the complete arithmetic code remains in the top box. Switch to **Decode** and
+the code itself is placed in the editable code field; you can also paste code there directly. Decode reads only that code
+and the pinned GPT-2 model, regenerating the same integer probability
+distributions from the recovered context. Once decoding finishes, all recovered
+token chips remain visible and clickable, including at the start marker. The binary fraction stays fixed: the walkthrough partitions the current
+interval, identifies the subregion containing its point, and zooms into that
+subregion. Subpixel token regions are grouped visually; all vocabulary
+probabilities still participate, and the selected token retains exact boundaries.
+
+The text format is `<token-count>:<binary-fraction-bits>`. The bits represent a
+dyadic rational strictly inside the final arithmetic interval, and the leading
+count marks the end of the token sequence. While encoding, the demo keeps this
+point as the model narrows the interval for each token. If the point remains
+inside, it is preserved; otherwise the encoder adds binary precision and picks
+a new point inside the narrower interval. The diagram first draws the new
+bounds within the grey previous interval. If the point is outside, it turns red,
+moves inside, and turns blue before zooming. The bounds and point zoom together
+into the selected interval. The old interval and its end
+bars fade out as the zoom finishes. In Encode, the current `0.bits` fraction is
+shown above the probability table; new digits appear during the point's
+move into the selected interval, with the newest digit temporarily enlarged.
+Each animation stage pauses for reading, and autoplay advances every 8 seconds.
+Selecting an earlier token or stepping left
+snaps directly to that step's completed view, without replaying the animation.
+The `▶` chip selects the start of the sequence, before any input token has been
+encoded or decoded. Left from the first token and Restart also return there.
+Decode keeps the code in the top input box and hides the duplicate fraction
+display in the walkthrough. Before selecting a token, the right panel reads
+“Finding new interval overlapping point.” The supplied point stays fixed: each regenerated token interval is checked for the point, then the
+diagram zooms in while keeping that same value. The code can be copied as text,
+but it depends
+on this demo's pinned GPT-2 model and probability quantization; it is not a
+model-independent archive format. Stop tracing also cancels decoding between
+inference steps.
 
 ## What the walkthrough shows
 
@@ -59,30 +100,31 @@ steps. Downloading/initializing an in-flight model cannot stop immediately.
 - An ordered section of the token probability distribution on the left and a
   selected-bound diagram on the right. All **50,257 logits** participate in
   prediction; the table is only a display slice.
-- The actual model context in wrapping hexadecimal bytes.
+- The Encode and Decode strips show GPT-2 token labels. Decode discovers each
+  token by locating the fixed code point in the model's regenerated intervals.
 - Previous/Next, left/right arrows, clickable tokens, restart, and playback.
   Arrow keys retain normal behavior while editing text.
 
 GPT-2's context is limited to 1,024 token positions. The tool starts each block
 with BOS and resets its KV cache every 1,024 predictions. It traces the entire
-input without silently truncating it; the context note identifies block resets.
+input without silently truncating it.
 The information comparison counts all preceding input bytes, across blocks.
 
 Softmax uses the complete logit vector. For the interval demonstration, each
 vocabulary token receives a positive integer count, with a total of 1,048,576.
 Remaining counts are assigned by largest remainder, with token-ID tie breaking.
-The UI distinguishes original model probabilities from illustrated quantized
-probabilities. Displayed bounds are exact BigInt fractions on the original `[0, 1)` scale,
+The UI shows the quantized probabilities actually used by the illustration.
+Displayed bounds are exact BigInt fractions on the original `[0, 1)` scale,
 with an exclusive upper endpoint. They shrink cumulatively without rescaling.
 The cumulative interval width is the main metric, shown in scientific notation
 without floating-point underflow. Expand “Inspect current and new bounds” for
 full decimal endpoints, rounded outward at increasing precision. The diagram
 zooms into the preceding interval.
 
-The bit comparison is an **information estimate**, not a file compression ratio.
-This is an educational simulation; it does not export or decode compressed files
-or promise numerical agreement across devices. CPU WASM inference uses the
-browser's local ONNX runtime. No WebGPU or hosted inference fallback is involved.
+The comparison bar is an **information estimate**, not the size of the
+arithmetic code. The code is model-specific and educational, not a general archive
+format. CPU WASM inference uses the browser's local ONNX runtime. No WebGPU or
+hosted inference fallback is involved.
 
 ## Build and deploy
 
@@ -129,6 +171,9 @@ checked against the original UTF-8 input before tracing.
 | `demo.html` | Accessible input, progress, and walkthrough |
 | `index.html`, `web/about.js` | Cited theory and interactive cross-entropy example |
 | `web/app.js` | UI state, streamed steps, and navigation |
+| `web/interval-diagram.js` | Shared interval coordinates and staged point/zoom animation |
+| `web/probability-view.js` | Complete-distribution display regions, grouping subpixel intervals |
+| `web/huffman.js` | Huffman code lengths from whole-input token frequencies |
 | `web/model-worker.js` | Model loading, tokenization, full-logit inference, KV cache |
 | `web/core.js` | Unicode limits, byte labels, probabilities, interval mathematics |
 | `web/style.css` | Responsive layout and wrapping contexts |
@@ -147,8 +192,11 @@ TZIP_MODEL_TESTS=1 npm run test:browser
 ```
 
 Unit tests cover Unicode limits, byte mappings, complete distributions, invalid
-logits, interval subdivision, and long numeric traces. Browser tests use an
-installed Google Chrome and cover input limits, mobile layout, and empty input.
+logits, interval subdivision, exact encode/decode round trips, long numeric
+traces, zoom geometry, and full-vocabulary display region coverage. Browser
+tests use installed Google Chrome and cover input limits, mobile layout, empty
+input, and a mocked encode/decode walkthrough, including animation stages,
+clickable token navigation, and preserving the full code at the start marker.
 The opt-in live test downloads and runs the real GPT-2 model, checks navigation
 and full-vocabulary output, and verifies there are no inference API requests or
 text uploads. CI runs unit tests and the production build without model downloads.
