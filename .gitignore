@@ -1,0 +1,25 @@
+# JavaScript dependencies and generated builds
+node_modules/
+dist/
+.vite/
+
+# Browser test artifacts
+playwright-report/
+test-results/
+coverage/
+
+# Local settings and model caches
+.env
+.env.*
+!.env.example
+.cache/
+model-cache/
+*.onnx
+*.onnx_data
+*.safetensors
+
+# Editor and OS files
+.DS_Store
+*.log
+.idea/
+.vscode/

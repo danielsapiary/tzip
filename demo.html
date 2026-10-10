@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explore GPT-2 token predictions and arithmetic intervals, entirely in your browser.">
+  <title>tzip · GPT-2 Compress</title>
+  <link rel="stylesheet" href="./web/style.css">
+  <script type="module" src="./web/app.js"></script>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar"><a class="brand" href="./"><span class="brand-mark">tz</span><span class="brand-name">GPT-2 Compress</span></a><nav class="page-nav" aria-label="Main navigation"><a href="./">About</a><a href="./demo.html" aria-current="page">Demo</a></nav></header>
+  <main>
+    <section class="intro"><p class="eyebrow">PREDICTION MEETS INFORMATION THEORY</p><h1>Autoregressive<br> <span>Compression.</span></h1><p class="intro-copy">GPT-2 reads the preceding tokens to predict the next. Explore the probability distribution, narrow an interval, and compare the information cost with UTF-8.</p></section>
+
+    <section aria-label="GPT-2 education tool">
+      <div class="panel education-controls"><div class="demo-settings"><span class="field-label">Model</span><strong>GPT-2 · 124M</strong><p class="field-help">Quantized ONNX · browser CPU (WASM)</p></div><div class="demo-input"><div class="input-label-row"><label class="field-label" for="demo-text">Your text</label><span id="character-count">0 / 2048 characters</span></div><div class="example-presets" role="group" aria-label="Load example"><span>Load example</span><button type="button" class="preset-chip" data-preset="bee" aria-pressed="true">Bee movie</button><button type="button" class="preset-chip" data-preset="random" aria-pressed="false">Random text</button></div><textarea id="demo-text" rows="4" spellcheck="false" aria-describedby="text-help">According to all known laws of aviation, there is no way a bee should be able to fly.
+Its wings are too small to get its fat little body off the ground.
+The bee, of course, flies anyway because bees don't care what humans think is impossible.
+Yellow, black. Yellow, black. Yellow, black. Yellow, black.</textarea><p class="field-help" id="text-help">Up to 2,048 Unicode code points. Your text stays in this browser.</p></div><div class="run-controls"><button id="run-demo" class="primary">Explore the steps →</button><button id="cancel-demo" class="secondary" hidden>Stop tracing</button></div></div>
+      <p class="privacy-note">First run downloads GPT-2 weights (approximately 130 MB) from Hugging Face and caches them locally. No inference server or text uploads.</p>
+      <div id="demo-error" class="message error" role="alert" hidden></div>
+      <div id="trace-progress" class="panel trace-progress" role="status" aria-live="polite" hidden><div><strong id="trace-stage"></strong><span id="trace-count"></span></div><progress id="trace-meter" max="100" value="0"></progress><p id="trace-detail"></p></div>
+      <div id="demo-placeholder" class="panel demo-placeholder"><h2>One token at a time.</h2><p>Enter text and explore real GPT-2 predictions. The table shows a section of its full vocabulary; the diagram shows the interval selected by the actual next token.</p></div>
+      <div id="trace-view" hidden>
+        <div class="panel encoding-comparison" aria-label="Encoding sizes for preceding input">
+          <div class="encoding-legend"><span><i class="legend-blue" aria-hidden="true"></i>Bits in our encoding <strong id="our-bits"></strong></span><span><i class="legend-red" aria-hidden="true"></i>Extra UTF-8 bits <strong id="extra-bits"></strong></span></div>
+          <div class="encoding-bar" id="encoding-cost-bar" role="img" aria-label="Model encoding cost plus extra UTF-8 bits"><span id="our-bar" class="encoding-base"></span><span id="unicode-extra" class="encoding-extra"></span></div>
+          <div class="encoding-reference">Unicode encoding <span id="unicode-bits"></span> · <a href="./#uniform-comparison">Why extra bits?</a></div>
+          <div class="huffman-comparison"><div class="encoding-legend"><span>Huffman encoding <strong id="huffman-bits"></strong></span><span>GPT-2 improvement over Huffman <strong id="huffman-improvement"></strong></span></div><details class="hint disclosure"><summary>About the Huffman comparison</summary><p class="field-help">Ordinary Huffman coding over GPT-2 tokens, using one frequency table from the entire input. The count covers the same preceding tokens as our encoding. Payload bits only; codebook, length metadata, and final byte padding excluded.</p></details></div>
+        </div>
+        <div class="trace-toolbar"><div><span class="eyebrow">FOLLOW THE CONTEXT</span><p id="step-title"></p></div><div class="playback"><button id="restart-demo" class="secondary" aria-label="Restart">↺</button><button id="previous-step" class="secondary" aria-label="Previous token">←</button><button id="play-demo" class="secondary">Play</button><button id="next-step" class="secondary" aria-label="Next token">→</button></div></div>
+        <div id="token-strip" class="byte-strip" aria-label="Select a token"></div>
+        <div class="panel step-panel">
+          <span class="metric-label">MODEL CONTEXT · PRECEDING BYTES (HEX)</span><code id="context-bytes"></code><details class="hint disclosure"><summary>How context works</summary><p id="context-note" class="field-help"></p></details>
+          <details class="hint disclosure"><summary>About the probability table</summary><p class="field-help" id="table-explanation"></p></details>
+          <div class="distribution-layout"><div class="distribution-table-wrap"><table class="distribution-table"><thead><tr><th scope="col">Token</th><th scope="col">Probability</th></tr></thead><tbody id="distribution-rows"></tbody></table></div><figure class="bound-diagram"><figcaption class="metric-label">SELECTED INTERVAL · ZOOMED</figcaption><strong id="current-symbol"></strong><span id="selected-probability"></span><svg id="interval-diagram" viewBox="0 0 400 100" role="img" aria-label="Selected interval"><rect x="10" y="35" width="380" height="30" rx="4" fill="#dce4de"/><rect id="interval-selection" y="35" height="30" fill="#ce6837"/><path id="interval-pointer" stroke="#ce6837" stroke-width="2"/></svg><div class="interval-width-metric"><span class="metric-label">CUMULATIVE INTERVAL WIDTH</span><strong id="interval-width"></strong><span id="interval-bits" class="field-help"></span></div><details class="bound-inspection disclosure"><summary>Inspect current and new bounds</summary><div class="disclosure-content"><span class="metric-label">CURRENT BOUNDS</span><code id="before-label"></code><span class="metric-label">NEW BOUNDS</span><code id="selected-label"></code></div></details></figure></div>
+          <details class="hint disclosure"><summary>How the intervals work</summary><p class="field-help">The full vocabulary is mapped to positive integer counts. Bounds stay on the original [0, 1) scale and shrink at every step; the diagram zooms into the preceding interval. Exact integer fractions prevent underflow. Decimal endpoints are rounded outward with increasing precision. Expand “Inspect current and new bounds” to see the full numbers. Model and illustrated probabilities may differ slightly because of quantization.</p></details>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer><span>tzip / open-source probability explorer</span><span id="connection-status">GPT-2 runs locally in a browser worker</span></footer>
+</div>
+</body>
+</html>

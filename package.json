@@ -1,0 +1,22 @@
+{
+  "name": "tzip-educate",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Client-side GPT-2 probability and arithmetic interval explorer",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test tests/*.test.js",
+    "test:browser": "playwright test"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.3.1",
+    "katex": "0.19.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "vite": "7.3.7"
+  }
+}
