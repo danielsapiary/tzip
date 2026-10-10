@@ -1,3 +1,4 @@
+import {ALL_STAR_TEXT} from './presets.js';
 import {limitText, MAX_CHARACTERS} from './core.js';
 import {IntervalDiagram, INTERVAL_PLAYBACK_MS} from './interval-diagram.js';
 
@@ -405,6 +406,7 @@ for (const chip of document.querySelectorAll('.preset-chip')) chip.addEventListe
   state.mode = 'encode';
   for (const option of document.querySelectorAll('.preset-chip')) option.setAttribute('aria-pressed', String(option === chip));
   if (preset === 'bee') $('demo-text').value = beeMovieText;
+  if (preset === 'all-star') $('demo-text').value = ALL_STAR_TEXT;
   if (preset === 'random') {
     // Uniform printable ASCII: reject the remainder before mapping to 95 symbols.
     let text = '';

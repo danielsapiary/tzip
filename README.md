@@ -96,7 +96,7 @@ inference steps.
   input, independent of model predictions. It sums code lengths for the same
   preceding tokens, excluding codebook, length metadata, and final byte padding.
   A single distinct token uses a one-bit code.
-- Bee movie and Random text preset chips; random text uses 300 uniformly sampled
+- Bee movie, All Star · Smash Mouth, and Random text preset chips; random text uses 300 uniformly sampled
   printable ASCII characters. Editing the input deselects both chips.
 - GPT-2 BPE tokens, including visible spaces and byte escapes for token pieces
   that split a Unicode character.
