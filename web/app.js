@@ -105,6 +105,7 @@ function showModePlaceholder(title, description) {
 function updateText() {
   intervalDiagram.cancel();
   state.sourceText = limitText($('demo-text').value);
+  $('language-entropy').hidden = true;
   stopPlayback();
   state.steps = [];
   state.codeText = ''; state.fullCode = ''; state.decodeComplete = false;
@@ -304,6 +305,10 @@ worker.addEventListener('message', ({data}) => {
     renderStep();
   }
   if (data.type === 'encoded') {
+    const characters = Array.from(state.sourceText).length;
+    const bits = state.steps.at(-1)?.cumulativeBits;
+    $('language-entropy').hidden = !characters || !Number.isFinite(bits);
+    if (characters && Number.isFinite(bits)) $('language-bits-per-character').textContent = `${(bits / characters).toFixed(2)} bits per character`;
     state.fullCode = data.code;
     state.codeText = data.code;
     $('code-text').value = data.code;
@@ -337,6 +342,7 @@ worker.addEventListener('error', event => {lock(false); error(`Browser worker fa
 
 function run() {
   if (state.busy) return;
+  $('language-entropy').hidden = true;
   intervalDiagram.cancel();
   stopPlayback(); error(''); state.steps = []; state.tokens = []; state.pieces = []; state.labels=[]; state.index = 0; state.decodeComplete = false; state.stepsMode=state.mode;
   if (state.mode === 'encode') {state.fullCode=''; state.codeText=''; $('code-text').value=''; $('code-panel').hidden=true;}

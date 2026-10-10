@@ -67,6 +67,9 @@ test('Trace UI wraps long code and enables computed context tokens', async ({pag
   await expect(page.locator('#step-title')).toHaveText('Start · 0 of 3 tokens encoded');
   await expect(page.locator('#code-help')).toHaveText(/count comes first/);
   expect((await page.locator('#code-help').textContent()).length).toBeLessThan(160);
+  const inputCharacters = Array.from(await page.locator('#demo-text').inputValue()).length;
+  await expect(page.locator('#language-entropy')).toBeVisible();
+  await expect(page.locator('#language-bits-per-character')).toHaveText(`${(2 / inputCharacters).toFixed(2)} bits per character`);
   const codeField=page.locator('#code-text');
   await expect(codeField).toBeVisible();
   const dimensions=await codeField.evaluate(el=>({client:el.clientWidth,scroll:el.scrollWidth,parent:el.parentElement.clientWidth}));

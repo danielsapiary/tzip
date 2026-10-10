@@ -89,6 +89,9 @@ inference steps.
 
 - A single bar for preceding input: blue shows model information cost and red
   shows extra UTF-8 bits. Progress hides after tracing.
+- A full-input ideal bits-per-Unicode-character result beside Shannon’s historical
+  estimate of about one bit per letter for printed English. The model result
+  uses the illustrated probabilities and stays fixed while stepping through.
 - An ordinary Huffman comparison using GPT-2 token frequencies from the entire
   input, independent of model predictions. It sums code lengths for the same
   preceding tokens, excluding codebook, length metadata, and final byte padding.
