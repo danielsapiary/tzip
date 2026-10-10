@@ -129,8 +129,6 @@ footer { display:flex; justify-content:space-between; gap:15px; padding:28px 0; 
 .rover-example { margin:24px 0; }
 .rover-example h3 { margin-top:0; }
 
-.kl-note { margin:24px 0; background:#edf0e9; border-left:3px solid var(--blue); }
-.kl-note p { margin-bottom:0; }
 
 .disclosure > summary { cursor:pointer; font-weight:650; line-height:1.5; }
 .disclosure > summary:focus-visible { outline:2px solid var(--orange); outline-offset:4px; border-radius:3px; }

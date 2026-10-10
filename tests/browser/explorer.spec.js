@@ -355,11 +355,13 @@ test('About page explains the theory in order and works without model loading', 
   expect(headings.slice(0,6)).toEqual([
     'Entropy',
     'Cross-entropy',
-    'When Q = P, cross-entropy equals entropy.',
-    'Arithmetic coding turns probability into an interval.',
+    'KL-Divergence',
+    'Arithmetic Coding',
     'Best predictor → best compressor',
     'Best predictor ← best compressor',
   ]);
+  await expect(page.locator('.kl-note')).toHaveCount(0);
+  await expect(page.locator('#perfect-model')).toContainText('capacity or structural assumptions');
   expect(await page.locator('#perfect-model .about-interactive').count()).toBe(1);
   await page.locator('.about-interactive > summary').click();
   await expect(page.locator('#mismatch-value')).toHaveText('0.000 bits');
