@@ -169,3 +169,9 @@ footer { display:flex; justify-content:space-between; gap:15px; padding:28px 0; 
 .live-fraction code { display:block; min-width:0; min-height:32px; font:13px/32px var(--mono); color:var(--blue); overflow-wrap:anywhere; text-align:left; }
 #fraction-added { color:var(--orange); }
 .fraction-typing-bit { display:inline-block; padding:3px 4px; border-radius:3px; background:var(--orange); color:white; font-size:21px; font-weight:700; line-height:1; vertical-align:middle; }
+
+.equation-disclosure > summary { display:flex; align-items:center; gap:12px; list-style:none; }
+.equation-disclosure > summary::-webkit-details-marker { display:none; }
+.equation-disclosure > summary::before { content:"▸"; color:var(--blue); }
+.equation-disclosure[open] > summary::before { content:"▾"; }
+.equation-disclosure > summary .equation { flex:1; min-width:0; }
