@@ -1,3 +1,4 @@
+import {arithmeticCodeFromHex} from '../../web/code-format.js';
 import {test,expect} from '@playwright/test';
 
 test('Unicode limits and mobile layout', async ({page}) => {
@@ -25,7 +26,7 @@ test('Empty text needs no model download', async ({page}) => {
   await page.locator('#demo-text').fill('');
   await page.locator('#run-demo').click();
   await expect(page.locator('#trace-progress')).toBeHidden();
-  await expect(page.locator('#demo-placeholder h2')).toContainText('Empty input');
+  await expect(page.locator('#demo-placeholder')).toHaveCount(0);
 });
 
 test('Trace UI wraps long code and enables computed context tokens', async ({page}) => {
@@ -86,7 +87,7 @@ test('Trace UI wraps long code and enables computed context tokens', async ({pag
   await expect(page.locator('#next-step')).toBeEnabled();
   await expect(page.locator('#live-fraction')).toHaveText('0.');
   await expect(page.locator('#code-panel')).toBeVisible();
-  await expect(page.locator('#code-text')).toHaveValue(`3:${'10110010'.repeat(512)}`);
+  await expect(page.locator('#code-text')).toHaveValue(`3:${'b2'.repeat(512)}`);
   await expect(page.locator('#encoded-marker')).toBeHidden();
   await expect(page.locator('#current-symbol')).toHaveText('▶');
   await expect(page.locator('#selected-probability')).toBeEmpty();
@@ -187,19 +188,23 @@ test('Trace UI wraps long code and enables computed context tokens', async ({pag
   await page.clock.runFor(7000);
   await expect(page.locator('#interval-diagram')).toHaveAttribute('data-phase','complete');
   await expect(page.locator('#live-fraction')).toHaveText('0.1011');
-  await page.locator('#token-strip button').last().click();
+  await page.getByRole('button', {name:'Last token', exact:true}).click();
+  await expect(page.locator('#step-title')).toContainText('Token 3 of 3');
+  await expect(page.locator('#last-step')).toBeDisabled();
   const completeCode = await page.locator('#code-text').inputValue();
+  await expect(page.locator('.demo-input #decode-output')).toHaveCount(1);
+  await expect(page.locator('#decoded-text')).toHaveAttribute('readonly', '');
   await page.locator('#decode-mode').click();
   await page.locator('#run-demo').click();
   await expect(page.locator('#interval-diagram')).toHaveAttribute('data-phase','start');
-  await expect(page.locator('#decoded-text')).toBeEmpty();
+  await expect(page.locator('#decoded-text')).toHaveValue('abc');
   await expect(page.locator('#code-text')).toHaveValue(completeCode);
   await start.click();
   await expect(page.locator('#interval-diagram')).toHaveAttribute('data-phase','start');
   await expect(page.locator('#step-title')).toHaveText('Start · 0 of 3 tokens decoded');
   await expect(page.locator('#code-text')).toHaveValue(completeCode);
-  await expect(page.locator('#live-fraction')).toHaveText(`0.${completeCode.split(':')[1]}`);
-  await expect(page.locator('#decoded-text')).toBeEmpty();
+  await expect(page.locator('#live-fraction')).toHaveText(`0.${arithmeticCodeFromHex(completeCode).split(':')[1]}`);
+  await expect(page.locator('#decoded-text')).toHaveValue('abc');
   await expect(page.locator('#decode-bit-progress')).toHaveCount(0);
   await expect(page.locator('#token-strip button:not([hidden])')).toHaveCount(4);
   await expect(page.locator('#encoded-marker')).toBeVisible();
@@ -220,29 +225,29 @@ test('Trace UI wraps long code and enables computed context tokens', async ({pag
   await expect(page.locator('#interval-selection')).toHaveAttribute('opacity','0');
   await expect(page.locator('#current-symbol')).toHaveText('?');
   await expect(page.locator('#selected-probability')).toHaveText('Finding new interval overlapping point');
-  await expect(page.locator('#decoded-text')).toBeEmpty();
+  await expect(page.locator('#decoded-text')).toHaveValue('');
   await expect(page.locator('#token-strip button:not([hidden])')).toHaveCount(4);
-  await expect(page.locator('#live-fraction')).toHaveText(`0.${completeCode.split(':')[1]}`);
+  await expect(page.locator('#live-fraction')).toHaveText(`0.${arithmeticCodeFromHex(completeCode).split(':')[1]}`);
   await page.clock.runFor(1600);
   await expect(page.locator('#interval-diagram')).toHaveAttribute('data-phase','locate');
   await expect(page.locator('#selected-probability')).toHaveText('40.0000% probability');
   await expect(page.locator('#step-title')).toContainText('Decoded token 1');
-  await expect(page.locator('#decoded-text')).toHaveText('a');
+  await expect(page.locator('#decoded-text')).toHaveValue('a');
   await expect(page.locator('#interval-selection')).toHaveAttribute('opacity','1');
   await expect(page.locator('#encoded-marker')).toHaveAttribute('fill','#214c59');
   await page.locator('.bound-diagram').screenshot({path:test.info().outputPath('decode-selected.png')});
   await page.clock.runFor(2500);
   await expect(page.locator('#interval-diagram')).toHaveAttribute('data-phase','complete');
-  await expect(page.locator('#live-fraction')).toHaveText(`0.${completeCode.split(':')[1]}`);
+  await expect(page.locator('#live-fraction')).toHaveText(`0.${arithmeticCodeFromHex(completeCode).split(':')[1]}`);
   await expect(page.locator('#interval-partitions rect').first()).toHaveAttribute('opacity','0');
   await expect(page.locator('#token-strip button:disabled')).toHaveCount(0);
-  await page.locator('#token-strip button[data-step-index="2"]').click();
-  await page.clock.runFor(5200);
+  await page.getByRole('button', {name:'Last token', exact:true}).click();
+  await expect(page.locator('#last-step')).toBeDisabled();
   await expect(page.locator('#step-title')).toContainText('Decoded token 3');
-  await expect(page.locator('#decoded-text')).toHaveText('abc');
+  await expect(page.locator('#decoded-text')).toHaveValue('abc');
   await page.locator('#token-strip button[data-step-index="0"]').click();
   await expect(page.locator('#interval-diagram')).toHaveAttribute('data-phase','complete');
-  await expect(page.locator('#decoded-text')).toHaveText('a');
+  await expect(page.locator('#decoded-text')).toHaveValue('a');
   await expect(page.locator('#token-strip button:not([hidden])')).toHaveCount(4);
   expect(pageErrors).toEqual([]);
 });
@@ -316,7 +321,7 @@ test('Real GPT-2 runs in the browser with full logits and token navigation', asy
   for (let i = 0; i < tokenCount; i++) await page.locator('#next-step').click();
   await expect(page.locator('#interval-diagram')).toHaveAttribute('data-phase','complete',{timeout:15000});
   await expect(page.locator('#decode-verification')).toContainText('binary fraction stays fixed');
-  await expect(page.locator('#decoded-text')).toHaveText('banana banana <|endoftext|> 🦋');
+  await expect(page.locator('#decoded-text')).toHaveValue('banana banana <|endoftext|> 🦋');
   await expect(page.locator('#encoded-marker')).toBeVisible();
   await expect(page.locator('#step-title')).toContainText('Decoded token');
   await expect(page.locator('.live-fraction')).toBeHidden();
@@ -326,11 +331,11 @@ test('Real GPT-2 runs in the browser with full logits and token navigation', asy
   await expect(page.locator('#point-status')).toContainText('Use the recovered token as context');
   await page.locator('#restart-demo').click();
   await expect(page.locator('#step-title')).toContainText('Start · 0');
-  await expect(page.locator('#decoded-text')).toBeEmpty();
+  await expect(page.locator('#decoded-text')).toHaveValue('banana banana <|endoftext|> 🦋');
   await expect(page.locator('#decode-bit-progress')).toHaveCount(0);
   await expect(page.locator('#token-strip button:not([hidden])')).toHaveCount(tokenCount + 1);
   await expect(page.locator('#interval-diagram')).toHaveAttribute('data-phase','start');
-  await expect(page.locator('#decoded-text')).not.toHaveText('banana banana <|endoftext|> 🦋');
+  await expect(page.locator('#decoded-text')).toHaveValue('banana banana <|endoftext|> 🦋');
   await page.locator('#encode-mode').click();
   await expect(page.locator('#demo-text')).toHaveValue('banana banana <|endoftext|> 🦋');
   await page.locator('#demo-text').fill('changed');

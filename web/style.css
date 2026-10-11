@@ -27,7 +27,7 @@ h2 { font-size:23px; }
 textarea { width:100%; resize:vertical; min-height:100px; max-height:450px; padding:15px; font:15px var(--mono); border:1px solid #bfcac1; border-radius:7px; background:var(--surface); color:var(--ink); }
 textarea:focus, button:focus-visible { outline:2px solid var(--orange); outline-offset:3px; }
 .code-panel { display:grid; gap:9px; width:100%; min-width:0; max-width:100%; margin-top:18px; }
-.code-panel textarea { display:block; width:100%; min-width:0; max-width:100%; min-height:110px; max-height:320px; font-size:12px; line-height:1.55; white-space:pre-wrap; word-break:break-all; overflow-x:hidden; }
+.code-panel textarea { display:block; width:100%; min-width:0; max-width:100%; min-height:110px; max-height:320px; font-size:15px; line-height:1.55; white-space:pre-wrap; word-break:break-all; overflow-x:hidden; }
 button { font:inherit; cursor:pointer; border-radius:6px; }
 button:disabled { opacity:.45; cursor:default; }
 .primary { background:var(--blue); color:white; border:0; padding:16px 20px; font-size:12px; font-weight:650; }
@@ -36,8 +36,6 @@ button:disabled { opacity:.45; cursor:default; }
 .field-help, .privacy-note { color:#576872; font-size:12px; line-height:1.7; }
 .message { padding:18px; border-radius:8px; margin:18px 0; }
 .error { background:#fbe7db; color:#963f25; }
-.demo-placeholder { text-align:center; padding:45px 25px; margin-top:24px; }
-.demo-placeholder p { color:var(--muted); max-width:600px; margin:auto; line-height:1.7; }
 .trace-progress { margin:20px 0; }
 .trace-progress > div { display:flex; justify-content:space-between; gap:16px; }
 .trace-progress progress { width:100%; margin-top:16px; accent-color:var(--orange); }
@@ -163,7 +161,6 @@ footer { display:flex; justify-content:space-between; gap:15px; padding:28px 0; 
 .demo-modes { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-bottom:18px; }
 .mode-chip { font:inherit; font-size:13px; border:1px solid #bfcac1; background:var(--surface); color:var(--blue); border-radius:999px; padding:9px 18px; }
 .mode-chip[aria-pressed="true"] { color:white; background:var(--blue); border-color:var(--blue); }
-#decoded-text { white-space:pre-wrap; overflow-wrap:anywhere; font:14px var(--mono); line-height:1.7; max-height:220px; overflow:auto; }
 
 #token-strip { align-items:stretch; gap:8px; max-height:210px; }
 

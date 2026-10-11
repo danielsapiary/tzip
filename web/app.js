@@ -1,3 +1,4 @@
+import {arithmeticCodeToHex, arithmeticCodeFromHex} from './code-format.js';
 import {ALL_STAR_TEXT} from './presets.js';
 import {limitText, MAX_CHARACTERS} from './core.js';
 import {IntervalDiagram, INTERVAL_PLAYBACK_MS} from './interval-diagram.js';
@@ -60,6 +61,7 @@ function error(message) {
 
 function lock(busy) {
   state.busy = busy;
+  $('last-step').disabled = busy || !state.steps.length || state.index === state.steps.length - 1;
   $('run-demo').disabled = busy || (state.mode === 'decode' && !state.codeText.trim());
   $('demo-text').disabled = busy;
   $('code-text').disabled = busy;
@@ -85,21 +87,18 @@ function formatInput() {
   $('input-label').htmlFor = decoding ? 'code-text' : 'demo-text';
   $('code-label').hidden = decoding;
   $('code-help').textContent = decoding
-    ? 'The count gives the number of tokens to recover. The remaining bits specify one fixed point in the interval.'
-    : 'The count comes first; the remaining bits are the binary fraction.';
+    ? 'The count gives the number of tokens to recover. The hexadecimal digits specify one fixed point in the interval.'
+    : 'The count comes first; the remaining hexadecimal digits are the fraction.';
   $('character-count').textContent = decoding ? `${state.codeText.length.toLocaleString()} code characters` : `${Array.from(state.sourceText).length} / ${MAX_CHARACTERS} characters`;
   $('text-help').textContent = decoding
     ? 'Paste the count-prefixed arithmetic code here. Decode uses this code, not the original text.'
     : 'Up to 2,048 Unicode code points. Your text stays in this browser.';
 }
 
-function showModePlaceholder(title, description) {
+function clearTraceView() {
   intervalDiagram.cancel();
   $('trace-view').hidden=true;
   $('decode-output').hidden=true;
-  $('demo-placeholder').hidden=false;
-  $('demo-placeholder').querySelector('h2').textContent=title;
-  $('demo-placeholder').querySelector('p').textContent=description;
   $('trace-progress').hidden=true;
 }
 
@@ -118,7 +117,6 @@ function updateText() {
   $('mode-help').textContent = state.mode === 'decode' ? 'Paste arithmetic code in the code field to begin.' : 'Encode your text to produce arithmetic code.';
   lock(false);
   $('trace-view').hidden = true;
-  $('demo-placeholder').hidden = false;
   $('trace-progress').hidden = true;
   error('');
 }
@@ -166,14 +164,14 @@ function renderStep({animate = true} = {}) {
     state.codeText = state.fullCode;
     $('code-text').value = state.fullCode;
     $('code-panel').hidden = !state.fullCode;
-    $('code-help').textContent = 'The count comes first; the remaining bits are the binary fraction. Complete arithmetic code.';
+    $('code-help').textContent = 'The count comes first; the remaining hexadecimal digits are the fraction. Complete arithmetic code.';
     $('mode-help').textContent = 'Before the first token: the walkthrough has not written any bits. The complete code remains above.';
   }
   if (state.mode === 'encode' && step.code) {
-    state.codeText=step.code;
-    $('code-text').value=step.code;
+    state.codeText=arithmeticCodeToHex(step.code);
+    $('code-text').value=state.codeText;
     $('code-panel').hidden=false;
-    $('code-help').textContent=`The count comes first; the remaining bits are the binary fraction. Live code for the first ${state.index+1} token${state.index ? 's' : ''}.`;
+    $('code-help').textContent=`The count comes first; the remaining hexadecimal digits are the fraction. Live code for the first ${state.index+1} token${state.index ? 's' : ''}.`;
     $('character-count').textContent=`${Array.from(state.sourceText).length} / ${MAX_CHARACTERS} characters`;
     $('mode-help').textContent=state.index+1===state.tokenCount
       ? 'Complete arithmetic code is shown. Switch to Decode to recover the text from this code.'
@@ -185,7 +183,7 @@ function renderStep({animate = true} = {}) {
   if (state.mode === 'decode') {
     $('decode-verification').textContent = 'The binary fraction stays fixed. Recover each token from the interval containing its point.';
   }
-  const displayedBits=(state.mode === 'decode' ? state.codeText : step.code || '').replace(/\s/g,'').split(':')[1] || '';
+  const displayedBits=(state.mode === 'decode' ? arithmeticCodeFromHex(state.codeText) : step.code || '').replace(/\s/g,'').split(':')[1] || '';
   const previousBits=state.mode === 'encode' && state.index>0
     ? (state.steps[state.index-1]?.code || '').replace(/\s/g,'').split(':')[1] || ''
     : '';
@@ -196,12 +194,12 @@ function renderStep({animate = true} = {}) {
   }
   state.fractionAnimation = {bits:displayedBits, previousBits, highlightedFrom, changing:state.mode === 'encode' && step.pointMoved};
   updateFraction(0);
-  $('demo-placeholder').hidden = true;
   $('step-title').textContent = isStart
     ? `Start · 0 of ${state.tokenCount} tokens ${state.mode === 'decode' ? 'decoded' : 'encoded'}`
     : `${state.mode === 'decode' ? 'Decoded token' : 'Token'} ${state.index + 1} of ${state.tokenCount} · ${step.label}`;
   $('previous-step').disabled = isStart;
   $('next-step').disabled = state.index === state.steps.length - 1;
+  $('last-step').disabled = state.busy || state.index === state.steps.length - 1;
   const ourBits = step.precedingBits;
   const unicodeBits = step.precedingBytes * 8;
   const scale = Math.max(ourBits, unicodeBits, 1);
@@ -265,8 +263,10 @@ function renderStep({animate = true} = {}) {
 function updateDecodedStep() {
   if (state.mode !== 'decode') return;
   const revealed = !['previous', 'partition', 'start'].includes(state.diagramPhase);
-  const count = Math.max(0, state.index + (revealed ? 1 : 0));
-  $('decoded-text').textContent = new TextDecoder().decode(Uint8Array.from(state.pieces.slice(0, count).flat()));
+  const count = state.index < 0 && state.decodeComplete
+    ? state.pieces.length
+    : Math.max(0, state.index + (revealed ? 1 : 0));
+  $('decoded-text').value = new TextDecoder().decode(Uint8Array.from(state.pieces.slice(0, count).flat()));
   $('step-title').textContent = state.index < 0 ? `Start · 0 of ${state.tokenCount} tokens decoded` : `${revealed ? 'Decoded' : 'Decoding'} token ${state.index + 1} of ${state.tokenCount}${revealed ? ` · ${state.steps[state.index]?.label}` : ''}`;
   for (const item of $('token-strip').children) item.hidden = !state.decodeComplete && Number(item.dataset.stepIndex) >= count;
   for (const row of $('distribution-rows').children) row.classList.toggle('chosen-row', revealed && Number(row.dataset.symbol) === state.steps[state.index]?.symbol);
@@ -310,16 +310,16 @@ worker.addEventListener('message', ({data}) => {
     const bits = state.steps.at(-1)?.cumulativeBits;
     $('language-entropy').hidden = !characters || !Number.isFinite(bits);
     if (characters && Number.isFinite(bits)) $('language-bits-per-character').textContent = `${(bits / characters).toFixed(2)} bits per character`;
-    state.fullCode = data.code;
-    state.codeText = data.code;
-    $('code-text').value = data.code;
+    state.fullCode = arithmeticCodeToHex(data.code);
+    state.codeText = state.fullCode;
+    $('code-text').value = state.codeText;
     $('code-panel').hidden = false;
     $('mode-help').textContent = 'Arithmetic code is ready. Switch to Decode to recover the text from this code.';
     lock(false);
   }
   if (data.type === 'decoded') {
     state.decodeComplete = true;
-    $('decoded-text').textContent = data.text;
+    $('decoded-text').value = data.text;
     $('decode-verification').textContent = 'Decoded from the arithmetic code. The decoder did not use the original text.';
     state.index = state.steps.length - 1;
     renderStep();
@@ -331,10 +331,6 @@ worker.addEventListener('message', ({data}) => {
       stopPlayback();
       state.index = -1;
       renderStep({animate:false});
-    }
-    if (!state.steps.length) {
-      $('demo-placeholder').hidden = false;
-      $('demo-placeholder').querySelector('h2').textContent = data.cancelled ? 'Stopped.' : state.mode === 'decode' ? 'Decoded empty text.' : 'Empty input · no token steps.';
     }
   }
   if (data.type === 'error') {lock(false); error(data.message); progress({stage:'Could not trace', detail: 'Check your connection and available browser memory, then try again.'});}
@@ -352,7 +348,13 @@ function run() {
   $('cancel-demo').disabled = false;
   lock(true);
   progress({stage:state.mode === 'decode' ? 'Decoding arithmetic code' : 'Loading GPT-2', detail:state.mode === 'decode' ? 'Using only the count-prefixed code and regenerated GPT-2 predictions.' : 'Downloading or reading cached model files. Inference will run here in your browser.'});
-  worker.postMessage(state.mode === 'decode' ? {type:'decode',code:state.codeText} : {type:'trace', text:state.sourceText});
+  try {
+    worker.postMessage(state.mode === 'decode' ? {type:'decode',code:arithmeticCodeFromHex(state.codeText)} : {type:'trace', text:state.sourceText});
+  } catch (issue) {
+    lock(false);
+    $('trace-progress').hidden = true;
+    error(issue.message);
+  }
 }
 $('run-demo').addEventListener('click',run);
 $('encode-mode').addEventListener('click', () => {
@@ -364,7 +366,7 @@ $('encode-mode').addEventListener('click', () => {
   $('mode-help').textContent = state.codeText ? 'Arithmetic code is ready. Switch to Decode to recover the text from this code.' : 'Encode your text to produce arithmetic code.';
   if (state.stepsMode === 'decode') {
     state.steps=[]; state.tokens=[]; state.pieces=[]; state.stepsMode=null;
-    showModePlaceholder('Ready to encode.', 'Click Encode to trace the text and create a value that Decode can recover.');
+    clearTraceView();
   } else if (state.stepsMode === 'encode') renderStep();
   lock(false);
 });
@@ -379,7 +381,7 @@ $('decode-mode').addEventListener('click', () => {
   $('token-strip').replaceChildren();
 
   $('mode-help').textContent=state.codeText ? 'The code field contains the arithmetic code. Click Decode to recover the text.' : 'Paste the count-prefixed arithmetic code, then click Decode.';
-  showModePlaceholder('Ready to decode.', 'Decode reads the arithmetic code and recovers tokens one at a time. It does not need the original text.');
+  clearTraceView();
   lock(false);
 });
 $('cancel-demo').addEventListener('click', () => {worker.postMessage({type:'cancel'}); $('cancel-demo').disabled = true; $('trace-detail').textContent = 'Stopping after the current download or inference call…';});
@@ -397,7 +399,6 @@ $('code-text').addEventListener('input', () => {
   $('mode-help').textContent='Click Decode to decode the arithmetic code in this field.';
   $('decode-output').hidden=true;
   $('trace-view').hidden=true;
-  $('demo-placeholder').hidden=false;
   lock(false);
   error('');
 });
@@ -423,6 +424,12 @@ for (const chip of document.querySelectorAll('.preset-chip')) chip.addEventListe
 });
 $('previous-step').addEventListener('click', () => stepBy(-1));
 $('next-step').addEventListener('click', () => stepBy(1));
+$('last-step').addEventListener('click', () => {
+  if (state.busy || !state.steps.length) return;
+  stopPlayback();
+  state.index = state.steps.length - 1;
+  renderStep({animate:false});
+});
 $('restart-demo').addEventListener('click', () => {stopPlayback(); state.index = -1; renderStep({animate:false});});
 $('play-demo').addEventListener('click', () => {
   if (state.timer) {stopPlayback(); return;}
